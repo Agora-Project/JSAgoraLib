@@ -5,36 +5,57 @@
  */
 
 JSAgoraLib = function(){
-    function JAgoraNodeID(source, localID) {
-        this.source = source;
-        this.localID = localID;
+    String.prototype.hashCode = function() {
+        var hash = 0, i, chr, len;
+        if (this.length === 0) return hash;
+        for (i = 0, len = this.length; i < len; i++) {
+            chr   = this.charCodeAt(i);
+            hash  = ((hash << 5) - hash) + chr;
+            hash |= 0; // Convert to 32bit integer
+        }
+        return hash;
+    };
+    
+    function JAgoraArgumentID(source, localID) {
+        this.source = new String(source);
+        this.localID = new Number(localID);
         this.equals = function(obj) {
             if (this === obj)
-              return true;
+                return true;
             if (obj === null)
-              return false;
+                return false;
             if (localID === null) {
-              if (obj.localID !== null)
-                return false;
+                if (obj.localID !== null)
+                    return false;
             } else if (localID !== obj.localID)
-              return false;
-            if (source === null) {
-              if (obj.source !== null)
                 return false;
+            if (source === null) {
+                if (obj.source !== null)
+                    return false;
             } else if (source !== obj.source)
-              return false;
+                return false;
             return true;
+          };
+          this.hashcode = function() {
+              var prime = 31;
+              var result = 1;
+              result = prime * result + ((localID === null) ? 0 : localID);
+              result = prime * result + ((source === null) ? 0 : source.hashCode());
+              return result;
           };
     }
     
     function JAgoraArgument(id, postername, posterID, content, date) {
         this.id = id;
-        this.posterName = postername;
-        this.posterID = posterID;
+        this.posterName = new String(postername);
+        this.posterID = new Number(posterID);
         this.content = content;
         this.date = date;
 	this.incomingEdges = [];
         this.outgoingEdges = [];
+        this.hashCode = function() {
+		return id.hashCode();
+	};
     }
     
     function JAgoraAttackID(originID, targetID) {
@@ -58,8 +79,8 @@ JSAgoraLib = function(){
             return true;
           };
           this.hashCode = function() {
-              prime = 31;
-              result = 1;
+              var prime = 31;
+              var result = 1;
               result = prime * result + ((this.originID === null) ? 0 : this.originID.hashCode());
               result = prime * result + ((this.targetID === null) ? 0 : this.targetID.hashCode());
               return result;
@@ -71,6 +92,17 @@ JSAgoraLib = function(){
         this.target = target;
         this.id = new JAgoraAttackID(origin.getID(), target.getID());
         
+    }
+    
+    function JAgoraThread(id, title, description) {
+        this.id = id;
+        this.title = title;
+        this.description = description;
+    }
+    
+    function JAgoraGraph() {
+        this.nodeMap = {};
+        this.edgeMap = {};
     }
     
 }();
