@@ -15,20 +15,124 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
     
     */
+var IJSAgoraLib = { LOGIN_ACTION: 0,
+LOGOUT_ACTION : 1,
+QUERY_BY_THREAD_ID_ACTION : 2,
+ADD_ARGUMENT_ACTION : 3,
+ADD_ATTACK_ACTION : 4,
+ADD_ARGUMENT_VOTE_ACTION : 5,
+ADD_ATTACK_VOTE_ACTION : 6,
+REGISTER_ACTION : 7,
+QUERY_THREAD_LIST_ACTION : 8,
+EDIT_ARGUMENT_ACTION : 9,
+QUERY_BY_ARGUMENT_ID_ACTION : 10,
+DELETE_ARGUMENT_ACTION : 11,
+
+USER_ID_FIELD : "id",
+USER_TYPE_FIELD : "utp",
+SESSION_ID_FIELD : "sid",
+ACTION_FIELD : "act",
+USER_FIELD : "usr",
+PASSWORD_FIELD : "pwd",
+RESPONSE_FIELD : "r",
+REASON_FIELD : "rs",
+THREAD_ID_FIELD : "tID",
+GRAPH_FIELD : "g",
+THREAD_LIST_FIELD : "t",
+CONTENT_FIELD : "c",
+ATTACKER_FIELD : "att",
+DEFENDER_FIELD : "def",
+ARGUMENT_ID_FIELD : "aid",
+VOTE_TYPE_FIELD : "vt",
+EMAIL_FIELD : "@",
+
+  // Content data
+TEXT_FIELD : "txt",
+
+  // Private constants for deconstructing server messages
+SERVER_OK : 0,
+SERVER_FAIL : 1
+
+};
 
 var BSON = bson().BSON;
 
-function JAgoraLib(hostname, port) {
+function JSAgoraLib(url) {
     this.userID = -1;
     this.sessionID = null;
-    this.hostName = hostname;
-    this.port = port;
+    this.usertype = -1;
+    this.url = url;
     
     this.openConnection = function(Url) {
         var xmlHttp = new XMLHttpRequest(); 
-        xmlHttp.open("POST", Url, true);
+        xmlHttp.open("POST", Url, false);
+        //xmlHttp.responseType = "arraybuffer";
         return xmlHttp;
-    }
+    };
+    
+    this.constructLoginRequest = function(user, password) {
+        bson = {};
+        bson.ACTION_FIELD = IJSAgoraLib.LOGIN_ACTION;
+        bson.USER_FIELD = user;
+        bson.PASSWORD_FIELD = password;
+        return bson;
+    };
+
+    this.parseLoginResponse = function(bson) {
+        response = bson.RESPONSE_FIELD;
+        if (response === IJSAgoraLib.SERVER_FAIL) {
+            Log.error("[JAgoraLib] Could not login (" + bson.REASON_FIELD + ")");
+            return false;
+        }
+
+        // Success!
+        sessionID = bson.SESSION_ID_FIELD;
+        userID = bson.USER_ID_FIELD;
+        userType = bson.USER_TYPE_FIELD;
+        return true;
+    };
+    
+    /**
+   * Performs a login with an Agora server.
+   *
+   * @param user
+   * @param password
+   * @return
+   */
+    this.login = function(user, password) {
+        // TODO: Can't differentiate between what happened. Make return int?
+        var s = this.openConnection(url);
+        if (s == null) {
+            alert("[JSAgoraLib] Could not connect because socket could not be opened.");
+            return false;
+        }
+
+        var success = JSAgoraComms.writeBSONObjectToHTTP(s,
+                this.constructLoginRequest(user, password));
+        if (!success) {
+            alert("[JSAgoraLib] Could not send login message.");
+            return false;
+        }
+
+        var response = JSAgoraComms.readBSONObjectFromHTTP(s);
+        if (response == null) {
+            alert("[JSAgoraLib] Could not read login response.");
+            return false;
+        }
+        success = this.parseLoginResponse(response);
+        if (!success) {
+            alert("[JSAgoraLib] Wrong login information.");
+            return false;
+        }
+
+        success = closeConnection(s);
+        if (!success) {
+            alert("[JAgoraLib] Problems closing login connection.");
+            return false;
+        }
+        alert("[JSAgoraLib] Successful login for " + user);
+        return true;
+    };
 }
 
 function hashCode(str) {
@@ -208,4 +312,26 @@ function deBSONiseGraph( bsonGraph) {
       graph.addEdge(deBSONiseEdge(e, graph));
 
     return graph;
+}
+
+var JSAgoraComms = {
+    readBSONObjectFromHTTP: function(s) {
+        try {
+            if ( s.readyState == 4 && s.status == 200 ) 
+            return BSON.deserialize(s.response);
+        } catch (ex) {
+            alert("[JSAgoraComms] Could not read BSON object from HTTP: " + ex);
+        }
+        return null;
+    },
+    writeBSONObjectToHTTP: function(s, bson) {
+    try {
+      s.send(BSON.serialize(bson));
+      return true;
+    } catch (e) {
+      alert("[JAgoraComms] Could not write BSON object to socket: " + e);
+    }
+    
+    return false;
   }
+};
