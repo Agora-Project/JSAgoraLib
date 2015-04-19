@@ -65,7 +65,7 @@ function JSAgoraLib(url) {
     
     this.openConnection = function(Url) {
         var xmlHttp = new XMLHttpRequest(); 
-        xmlHttp.open("POST", Url, false);
+        xmlHttp.open("GET", Url, false);
         //xmlHttp.responseType = "arraybuffer";
         return xmlHttp;
     };
@@ -318,7 +318,8 @@ var JSAgoraComms = {
     readBSONObjectFromHTTP: function(s) {
         try {
             if ( s.readyState == 4 && s.status == 200 ) 
-            return BSON.deserialize(s.response);
+                return BSON.deserialize(new ArrayBuffer(s.response));
+            else alert("[JSAgoraComms] Could not access response.");
         } catch (ex) {
             alert("[JSAgoraComms] Could not read BSON object from HTTP: " + ex);
         }
@@ -326,7 +327,7 @@ var JSAgoraComms = {
     },
     writeBSONObjectToHTTP: function(s, bson) {
     try {
-      s.send(BSON.serialize(bson));
+      s.send(new Int8Array(BSON.serialize(bson)));
       return true;
     } catch (e) {
       alert("[JAgoraComms] Could not write BSON object to socket: " + e);
