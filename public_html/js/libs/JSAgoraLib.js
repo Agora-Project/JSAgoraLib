@@ -66,30 +66,30 @@ exports.JSAgoraLib = function(url) {
     
     this.openConnection = function(Url) {
         var xmlHttp = new XMLHttpRequest(); 
-        xmlHttp.open("GET", Url, false);
+        xmlHttp.open("POST", Url, false);
         //xmlHttp.responseType = "arraybuffer";
         return xmlHttp;
     };
     
     this.constructLoginRequest = function(user, password) {
         bson = {};
-        bson.ACTION_FIELD = exports.IJSAgoraLib.LOGIN_ACTION;
-        bson.USER_FIELD = user;
-        bson.PASSWORD_FIELD = password;
+        bson[exports.IJSAgoraLib.ACTION_FIELD] = exports.IJSAgoraLib.LOGIN_ACTION;
+        bson[exports.IJSAgoraLib.USER_FIELD] = user;
+        bson[exports.IJSAgoraLib.PASSWORD_FIELD] = password;
         return bson;
     };
 
     this.parseLoginResponse = function(bson) {
-        response = bson.RESPONSE_FIELD;
+        response = bson[exports.IJSAgoraLib.RESPONSE_FIELD];
         if (response === exports.IJSAgoraLib.SERVER_FAIL) {
             Log.error("[JSAgoraLib] Could not login (" + bson.REASON_FIELD + ")");
             return false;
         }
 
         // Success!
-        sessionID = bson.SESSION_ID_FIELD;
-        userID = bson.USER_ID_FIELD;
-        userType = bson.USER_TYPE_FIELD;
+        sessionID = bson[exports.IJSAgoraLib.SESSION_ID_FIELD];
+        userID = bson[exports.IJSAgoraLib.USER_ID_FIELD];
+        userType = bson[exports.IJSAgoraLib.USER_TYPE_FIELD];
         return true;
     };
     
@@ -126,11 +126,6 @@ exports.JSAgoraLib = function(url) {
             return false;
         }
 
-        success = this.closeConnection(s);
-        if (!success) {
-            alert("[JSAgoraLib] Problems closing login connection.");
-            return false;
-        }
         alert("[JSAgoraLib] Successful login for " + user);
         return true;
     };
@@ -318,8 +313,11 @@ exports.deBSONiseEdge = function(bsonEdge, graph) {
 exports.JSAgoraComms = {
     readBSONObjectFromHTTP: function(s) {
         try {
-            if ( s.readyState == 4 && s.status == 200 ) 
-                return BSON.deserialize(new Buffer(s.response));
+            if ( s.readyState == 4 && s.status == 200 ) {
+                var buf = new Buffer(s.response, 'utf16le')
+                alert(buf);
+                return BSON.deserialize(buf);
+            }
             else alert("[JSAgoraComms] Could not access response.");
         } catch (ex) {
             alert("[JSAgoraComms] Could not read BSON object from HTTP: " + ex);
@@ -328,7 +326,7 @@ exports.JSAgoraComms = {
     },
     writeBSONObjectToHTTP: function(s, bson) {
     try {
-      s.send(new Int8Array(BSON.serialize(bson)));
+      s.send(BSON.serialize(bson));
       return true;
     } catch (e) {
       alert("[JSAgoraComms] Could not write BSON object to socket: " + e);
