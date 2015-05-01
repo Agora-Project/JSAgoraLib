@@ -64,14 +64,38 @@ exports.JSAgoraLib = function(url) {
     this.url = url;
     this.xmlHttp = null;
     
-    this.openConnection = function(Url) {
+    this.openConnection = function() {
         this.xmlHttp = new XMLHttpRequest(); 
-        this.xmlHttp.open("POST", Url, false);
+        this.xmlHttp.open("POST", this.url, false);
         return true;
     };
     
+    this.isConnected = function() {
+    return (this.sessionID != null);
+  }
+    
+    this.isModerator = function() {
+        return (this.userType != 1);
+    }
+    
+    this.constructBasicRequest = function() {
+        var request = {};
+        request[exports.IJSAgoraLib.USER_ID_FIELD] = 0;
+        return request;
+    }
+    
+    this.constructBasicSessionRequest = function() {
+    if (!this.isConnected()) {
+      return null;
+    }
+    var request = {};
+    request[exports.IJSAgoraLib.SESSION_ID_FIELD] = this.sessionID;
+    request[exports.IJSAgoraLib.USER_ID_FIELD] = this.userID;
+    return request;
+  }
+    
     this.constructLoginRequest = function(user, password) {
-        bson = {};
+        var bson = {};
         bson[exports.IJSAgoraLib.ACTION_FIELD] = exports.IJSAgoraLib.LOGIN_ACTION;
         bson[exports.IJSAgoraLib.USER_FIELD] = user;
         bson[exports.IJSAgoraLib.PASSWORD_FIELD] = password;
@@ -79,7 +103,7 @@ exports.JSAgoraLib = function(url) {
     };
 
     this.parseLoginResponse = function(bson) {
-        response = bson[exports.IJSAgoraLib.RESPONSE_FIELD];
+        var response = bson[exports.IJSAgoraLib.RESPONSE_FIELD];
         if (response == exports.IJSAgoraLib.SERVER_FAIL) {
             console.log("[JSAgoraLib] Could not login (" + bson[exports.IJSAgoraLib.REASON_FIELD] + ")");
             return false;
@@ -101,7 +125,7 @@ exports.JSAgoraLib = function(url) {
    */
     this.login = function(user, password) {
         // TODO: Can't differentiate between what happened. Make return int?
-        if (!this.openConnection(url)) {
+        if (!this.openConnection()) {
             console.log("[JSAgoraLib] Could not connect because socket could not be opened.");
             return false;
         }
@@ -120,13 +144,61 @@ exports.JSAgoraLib = function(url) {
         }
         var success = this.parseLoginResponse(response);
         if (!success) {
-            alert("[JSAgoraLib] Wrong login information.");
+            console.log("[JSAgoraLib] Wrong login information.");
             return false;
         }
 
         console.log("[JSAgoraLib] Successful login for " + user);
         return true;
     };
+    
+    this.constructGetArgumentByIDRequest = function(id) {
+        
+        var bsonRequest = this.constructBasicRequest();
+        bsonRequest[exports.IJSAgoraLib.ACTION_FIELD] = exports.IJSAgoraLib.QUERY_BY_ARGUMENT_ID_ACTION;
+        bsonRequest[exports.IJSAgoraLib.ARGUMENT_ID_FIELD] = id;
+        return bsonRequest;
+    }
+    
+    this.parseGetArgumentByIDResponse = function(bson) {
+        var response = bson[exports.IJSAgoraLib.RESPONSE_FIELD];
+        if (response == exports.IJSAgoraLib.SERVER_FAIL) {
+            console.log("[JAgoraLib] Could not get thread by argument ID(" + bson[REASON_FIELD] + ")");
+            return null;
+        }
+
+        return exports.deBSONiseGraph(bson[exports.IJSAgoraLib.GRAPH_FIELD]);
+    }
+    
+    this.getArgumentByID = function(id) {
+        if (!this.openConnection()) {
+            console.log("[JAgoraHTTPLib] Could not connect because connection could not be opened.");
+            return null;
+        }
+
+        var success = exports.JSAgoraComms.writeBSONObjectToHTTP(this.xmlHttp, 
+                    this.constructGetArgumentByIDRequest(id));
+        if (!success) {
+            console.log("[JAgoraHTTPLib] Could not write getThreadByArgumentID query.");
+            return null;
+        }
+
+        var response = exports.JSAgoraComms.readBSONObjectFromHTTP(this.xmlHttp);
+        if (response == null) {
+            console.log("[JAgoraHTTPLib] Could not read getThreadByArgumentID response.");
+            return null;
+        }
+
+        var graph = this.parseGetArgumentByIDResponse(response);
+
+        var success = (graph != null);
+        if (!success) {
+            console.log("[JAgoraHTTPLib] Could not getThreadByArgumentID.");
+            return null;
+        }
+
+        return graph;
+    }
 }
 
 exports.hashCode = function(str) {
@@ -141,38 +213,38 @@ exports.hashCode = function(str) {
     };
 
 exports.JSAgoraArgumentID = function(source, localID) {
-    this.source = new String(source);
-    this.localID = new Number(localID);
+    this.source = source;
+    this.id = localID;
     this.equals = function(obj) {
         if (this === obj)
             return true;
         if (obj === null)
             return false;
-        if (localID === null) {
-            if (obj.localID !== null)
+        if (this.id === null) {
+            if (obj.id !== null)
                 return false;
-        } else if (localID !== obj.localID)
+        } else if (this.id !== obj.id)
             return false;
-        if (source === null) {
+        if (this.source === null) {
             if (obj.source !== null)
                 return false;
-        } else if (source !== obj.source)
+        } else if (this.source !== obj.source)
             return false;
         return true;
       };
       this.hashcode = function() {
           var prime = 31;
           var result = 1;
-          result = prime * result + ((localID === null) ? 0 : localID);
-          result = prime * result + ((source === null) ? 0 : hashCode(source));
+          result = prime * result + ((this.id === null) ? 0 : this.id);
+          result = prime * result + ((this.source === null) ? 0 : hashCode(this.source));
           return result;
       };
 }
 
 exports.JSAgoraArgument = function(id, postername, posterID, content, date) {
     this.id = id;
-    this.posterName = new String(postername);
-    this.posterID = new Number(posterID);
+    this.posterName = postername;
+    this.posterID = posterID;
     this.content = content;
     this.date = date;
     this.incomingEdges = [];
@@ -294,7 +366,7 @@ exports.deBSONiseEdge = function(bsonEdge, graph) {
     return e;
 }
 
- deBSONiseGraph = function( bsonGraph) {
+exports.deBSONiseGraph = function(bsonGraph) {
     var graph = new exports.JSAgoraGraph();
     var nodes = bsonGraph.nodes;
     var n;
@@ -313,7 +385,7 @@ exports.JSAgoraComms = {
         try {
             var response = connection.response;
             var buf = new Buffer(response, "utf-8");
-
+            console.log("length: " + buf.length);
 //            for (var i = 0; i < response.length; i++) {
 //              buf.writeUInt8(charCodeAt(i), i);
 //            }
