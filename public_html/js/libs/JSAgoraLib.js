@@ -384,14 +384,12 @@ exports.JSAgoraComms = {
     readBSONObjectFromHTTP: function(connection) {
         try {
             var response = connection.response;
-            var buf = new Buffer(response, "utf-8");
-            console.log("length: " + buf.length);
-//            for (var i = 0; i < response.length; i++) {
-//              buf.writeUInt8(charCodeAt(i), i);
-//            }
-            return exports.BSON.deserialize(buf);
+//            var buf = new Buffer(response, "utf-8");
+//            console.log("length:" + buf.length);
+            var encoder = new TextEncoder("utf-8");
+            return exports.BSON.deserialize(encoder.encode(response));
         } catch (ex) {
-            console.log("[JSAgoraComms] Could not read BSON object from HTTP: " + ex + ", " + status);
+            console.log("[JSAgoraComms] Could not read BSON object from HTTP: " + ex);
             throw ex;
         }
         return null;
